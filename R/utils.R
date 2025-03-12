@@ -552,6 +552,7 @@ parse_orthologues <- function(filepath){
     message("No rows with commas found in id1 or id2 for ", filepath)
     # If x2 is empty, you could either return x1 or handle the case differently
     x <- x1  # or any other action that fits your needs
+    setnames(x, c("orthID", "id1", "id2"))
   } else {
     # Continue with the logic for splitting id1 and id2 if x2 is not empty
     x2[, orthID := 1:.N]
