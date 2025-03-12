@@ -542,18 +542,39 @@ parse_orthologues <- function(filepath){
   refID <- colnames(x)[2]
   altID <- colnames(x)[3]
   setnames(x, c("og", "id1", "id2"))
-  x1 <- subset(x, !grepl(",", paste(id1, id2)))
-  x2 <- subset(x, grepl(",", paste(id1, id2)))
-  x2[,orthID := 1:.N]
-  x2r <- x2[,list(id1 = unique(strsplit(id1, ",")[[1]])),
-            by = "orthID"]
-  x2a <- x2[,list(id2 = unique(strsplit(id2, ",")[[1]])),
-            by = "orthID"]
-  x2 <- merge(x2r, x2a, by = "orthID", all = T, allow.cartesian = T)
-  x1[,orthID := (1:.N)+max(x2$orthID)]
-  x <- rbind(x1[,colnames(x2), with = F], x2)
-  x[,`:=`(gen1 = refID, gen2 = altID,
-          id1 = gsub(" ", "", id1), id2 = gsub(" ", "", id2))]
+  
+  # Split the data into x1 and x2 based on whether id1 or id2 contain commas
+  x1 <- subset(x, !grepl(",", paste(id1, id2)))  # No commas
+  x2 <- subset(x, grepl(",", paste(id1, id2)))   # Contains commas
+  
+  # Check if x2 is empty and handle it accordingly
+  if (nrow(x2) == 0) {
+    message("No rows with commas found in id1 or id2 for ", filepath)
+    # If x2 is empty, you could either return x1 or handle the case differently
+    x <- x1  # or any other action that fits your needs
+  } else {
+    # Continue with the logic for splitting id1 and id2 if x2 is not empty
+    x2[, orthID := 1:.N]
+    
+    # Safeguard splitting: Check if each row in id1 or id2 actually contains commas
+    x2r <- x2[, list(id1 = unlist(strsplit(id1, ","))[!sapply(strsplit(id1, ","), length) == 0]),
+              by = "orthID"]
+    x2a <- x2[, list(id2 = unlist(strsplit(id2, ","))[!sapply(strsplit(id2, ","), length) == 0]),
+              by = "orthID"]
+    
+    x2 <- merge(x2r, x2a, by = "orthID", all = T, allow.cartesian = T)
+    
+    # Assign orthID to x1 based on maximum orthID in x2
+    x1[, orthID := (1:.N) + max(x2$orthID, na.rm = TRUE)]  # Make sure to handle NA
+    
+    # Combine the results of x1 and x2
+    x <- rbind(x1[, colnames(x2), with = F], x2)
+  }
+  
+  # Clean up the column names and return the data
+  x[, `:=`(gen1 = refID, gen2 = altID,
+           id1 = gsub(" ", "", id1), id2 = gsub(" ", "", id2))]
+  
   return(x)
 }
 
